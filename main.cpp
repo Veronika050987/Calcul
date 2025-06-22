@@ -30,10 +30,6 @@ g_i_BUTTON_SPACE * 4 + 2 * g_i_START_Y + 24 + 16;
 
 CONST INT g_SIZE = 256;
 
-double intermediateResult = 0.0;
-bool operationPending = false;
-char pendingOperation = '\0';
-
 INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 double EvaluateExpression(const std::string& expression) 
