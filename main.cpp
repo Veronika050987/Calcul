@@ -30,6 +30,10 @@ g_i_BUTTON_SPACE * 4 + 2 * g_i_START_Y + 24 + 16;
 
 CONST INT g_SIZE = 256;
 
+double intermediateResult = 0.0;
+bool operationPending = false;
+char pendingOperation = '\0';
+
 INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 double EvaluateExpression(const std::string& expression) 
@@ -40,21 +44,19 @@ double EvaluateExpression(const std::string& expression)
 	double num;
 	char op;
 
-	// First pass: Extract numbers and operators
 	if (!(ss >> num))
-		return 0.0;  // Handle empty expression
+		return 0.0; 
 
 	nums.push_back(num);
 
 	while (ss >> op) 
 	{
 		if (!(ss >> num))
-			return 0.0; //Invalid Expression
+			return 0.0;
 		ops.push_back(op);
 		nums.push_back(num);
 	}
 
-	// Second pass: Perform multiplications and divisions
 	for (size_t i = 0; i < ops.size(); ) 
 	{
 		if (ops[i] == '*' || ops[i] == '/') 
@@ -68,7 +70,7 @@ double EvaluateExpression(const std::string& expression)
 				if (nums[i + 1] != 0)
 					nums[i] = nums[i] / nums[i + 1];
 				else
-					return 0.0;  //Division by zero
+					return 0.0;
 			}
 
 			nums.erase(nums.begin() + i + 1);
@@ -80,7 +82,6 @@ double EvaluateExpression(const std::string& expression)
 		}
 	}
 
-	// Third pass: Perform additions and subtractions
 	double result = nums[0];
 	for (size_t i = 0; i < ops.size(); ++i) 
 	{
@@ -149,7 +150,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, IN
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-	return (WPARAM)msg.wParam;
+	return msg.wParam;
 }
 
 INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -266,7 +267,7 @@ INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			//в противном случае возвращает 'nullptr' (физический 0);
 			//0 - это ''false;
 			//true - это все что НЕ 0;
-			strcat(szDisplay, szDigit);
+			strcat_s(szDisplay, szDigit);
 			SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)szDisplay);
 		}
 
@@ -277,7 +278,7 @@ INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			szOp[1] = 0;
 			SendMessage(hEditDisplay, WM_GETTEXT, g_SIZE, (LPARAM)szDisplay);
 
-			//Prevent adding an operation directly at the begining
+
 			if (strlen(szDisplay) > 0) 
 			{
 				strcat_s(szDisplay, g_SIZE, szOp);
@@ -313,7 +314,7 @@ INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				case IDC_BUTTON_EQUAL:
 				{
 				SendMessage(hEditDisplay, WM_GETTEXT, g_SIZE, (LPARAM)szDisplay);
-
+				
 					double result = EvaluateExpression(szDisplay);
 					sprintf_s(szDisplay, g_SIZE, "%lf", result);
 
