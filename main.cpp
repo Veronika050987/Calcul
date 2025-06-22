@@ -1,4 +1,8 @@
 #include<Windows.h>
+#include<string>
+#include<sstream>
+#include<vector>
+#include<algorithm>
 #include"resource.h"
 
 CONST CHAR g_sz_CLASS_NAME[] = "MyCalc";
@@ -21,12 +25,77 @@ CONST INT g_i_BUTTON_START_X = g_i_START_X;
 CONST INT g_i_BUTTON_START_Y = g_i_START_Y + g_i_DISPLAY_HEIGHT + g_i_INTERVAL;
 
 CONST INT g_i_WINDOW_WIDTH = g_i_DISPLAY_WIDTH + 2 * g_i_START_X + 16;
-CONST INT g_i_WINDOW_HEIGHT = (g_i_DISPLAY_HEIGHT + g_i_INTERVAL) + g_i_BUTTON_SPACE * 
-	4 + 2 * g_i_START_Y + 24 + 16;
+CONST INT g_i_WINDOW_HEIGHT = (g_i_DISPLAY_HEIGHT + g_i_INTERVAL) + 
+g_i_BUTTON_SPACE * 4 + 2 * g_i_START_Y + 24 + 16;
 
 CONST INT g_SIZE = 256;
 
 INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+double EvaluateExpression(const std::string& expression) 
+{
+	std::stringstream ss(expression);
+	std::vector<double> nums;
+	std::vector<char> ops;
+	double num;
+	char op;
+
+	// First pass: Extract numbers and operators
+	if (!(ss >> num))
+		return 0.0;  // Handle empty expression
+
+	nums.push_back(num);
+
+	while (ss >> op) 
+	{
+		if (!(ss >> num))
+			return 0.0; //Invalid Expression
+		ops.push_back(op);
+		nums.push_back(num);
+	}
+
+	// Second pass: Perform multiplications and divisions
+	for (size_t i = 0; i < ops.size(); ) 
+	{
+		if (ops[i] == '*' || ops[i] == '/') 
+		{
+			if (ops[i] == '*') 
+			{
+				nums[i] = nums[i] * nums[i + 1];
+			}
+			else 
+			{
+				if (nums[i + 1] != 0)
+					nums[i] = nums[i] / nums[i + 1];
+				else
+					return 0.0;  //Division by zero
+			}
+
+			nums.erase(nums.begin() + i + 1);
+			ops.erase(ops.begin() + i);
+		}
+		else 
+		{
+			++i;
+		}
+	}
+
+	// Third pass: Perform additions and subtractions
+	double result = nums[0];
+	for (size_t i = 0; i < ops.size(); ++i) 
+	{
+		if (ops[i] == '+') 
+		{
+			result += nums[i + 1];
+		}
+		else if (ops[i] == '-') 
+		{
+			result -= nums[i + 1];
+		}
+	}
+
+	return result;
+}
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, INT nCmdShow)
 {
@@ -80,7 +149,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, IN
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-	return msg.wParam;
+	return (WPARAM)msg.wParam;
 }
 
 INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -200,14 +269,73 @@ INT WINAPI WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			strcat(szDisplay, szDigit);
 			SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)szDisplay);
 		}
+
+		else if (LOWORD(wParam) >= IDC_BUTTON_PLUS && LOWORD(wParam) <= IDC_BUTTON_SLASH)
+		{
+			CHAR szOp[2] = {};
+			szOp[0] = g_sz_OPERATIONS[LOWORD(wParam) - IDC_BUTTON_PLUS][0];
+			szOp[1] = 0;
+			SendMessage(hEditDisplay, WM_GETTEXT, g_SIZE, (LPARAM)szDisplay);
+
+			//Prevent adding an operation directly at the begining
+			if (strlen(szDisplay) > 0) 
+			{
+				strcat_s(szDisplay, g_SIZE, szOp);
+				SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)szDisplay);
+			}
+		}
+
+		else if (LOWORD(wParam) >= IDC_BUTTON_BSP && LOWORD(wParam) <= IDC_BUTTON_EQUAL)
+		{
+			switch (LOWORD(wParam))
+			{
+				case IDC_BUTTON_BSP:
+				{
+				SendMessage(hEditDisplay, WM_GETTEXT, g_SIZE, (LPARAM)szDisplay);
+				size_t len = strlen(szDisplay);
+
+				if (len > 0)
+				{
+					szDisplay[len - 1] = 0;
+				}
+				SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)szDisplay);
+
+				break;
+				}
+
+				case IDC_BUTTON_CLR:
+				{
+				SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)"0");
+
+				break;
+				}
+
+				case IDC_BUTTON_EQUAL:
+				{
+				SendMessage(hEditDisplay, WM_GETTEXT, g_SIZE, (LPARAM)szDisplay);
+
+					double result = EvaluateExpression(szDisplay);
+					sprintf_s(szDisplay, g_SIZE, "%lf", result);
+
+				SendMessage(hEditDisplay, WM_SETTEXT, 0, (LPARAM)szDisplay);
+				break;
+				}
+				default:
+				break;
+			}
+		}
+		break;
 	}
 	break;
+
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
+
 	case WM_CLOSE:
 		DestroyWindow(hwnd);
 		break;
+
 	default:return DefWindowProc(hwnd, uMsg, wParam, lParam);
 	}
 	return FALSE;
